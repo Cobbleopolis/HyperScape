@@ -4,14 +4,11 @@ import java.io._
 
 import com.cobble.hyperscape.core.{HyperScape, Init}
 import com.cobble.hyperscape.registry.{ShaderRegistry, TextureRegistry}
-import com.cobble.hyperscape.render.Render
-import com.cobble.hyperscape.util.GLUtil
+import com.cobble.hyperscape.render.{Window, Render}
 import org.lwjgl.glfw.{GLFWVidMode, GLFWKeyCallback, GLFWErrorCallback}
 import org.lwjgl.glfw.GLFW._
-import org.lwjgl.input.Keyboard
 import org.lwjgl.opengl._
 import org.lwjgl.system.MemoryUtil
-import org.lwjgl.{LWJGLException, Sys}
 
 import scala.xml.Null
 
@@ -33,9 +30,6 @@ object Game {
 
     var fullscreen: Boolean = false
 
-	private var errorCallback: GLFWErrorCallback = null
-	private var keyCallback: GLFWKeyCallback = null
-
     //    var firstRender: Boolean = true
 
     /**
@@ -44,64 +38,60 @@ object Game {
      */
     def main(args: Array[String]): Unit = {
         setNatives()
-	    try {
-		    HyperScape.debug = args.contains("--debug")
-		    fullscreen = args.contains("--fullscreen")
-		    initGL2()
-		    Init.loadAssets()
-		    ShaderRegistry.bindShader("gui")
-		    //        TextureRegistry.bindTexture("terrain")
 
-		    lastFrame = getTime
+        HyperScape.debug = args.contains("--debug")
+        fullscreen = args.contains("--fullscreen")
+        Window.init(WIDTH, HEIGHT, WINDOW_TITLE, isFullscreen = false)
+        initGL2()
+        Init.loadAssets()
+        ShaderRegistry.bindShader("gui")
+        //        TextureRegistry.bindTexture("terrain")
 
-		    hyperScape = new HyperScape
-		    hyperScape.init()
-		    //        hyperScape.changeState("mainMenu")
+//		    lastFrame = getTime
 
-		    Keyboard.enableRepeatEvents(true)
+        hyperScape = new HyperScape
+        hyperScape.init()
+        //        hyperScape.changeState("mainMenu")
 
-		    //        GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
-		    //        Render.mainCamera.updatePerspective()
-		    //        Render.mainCamera.uploadPerspective()
+//		    Keyboard.enableRepeatEvents(true)
 
-		    while (glfwWindowShouldClose(Render.window) == GLFW_FALSE && !HyperScape.isCloseRequested) {
-			    //            if (firstRender) {
-			    //                println("First Render")
-			    //                GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
-			    //                Render.mainCamera.updatePerspective()
-			    //                Render.mainCamera.uploadPerspective()
-			    //                firstRender = false
-			    //            }
-			    if (Display.wasResized || resize) {
-				    GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
-				    Render.mainCamera.updatePerspective()
-				    Render.mainCamera.uploadPerspective()
-				    resize = false
-			    }
-			    hyperScape.tick()
-			    //            Render.mainCamera.uploadPerspective()
-			    // Map the internal OpenGL coordinate system to the entire screen
-			    hyperScape.render()
-			    //            val err = GL11.glGetError()
-			    //            if (err != 0) {
-			    //                println("Error in shader" + ShaderRegistry.getCurrentShader + " | " + err)
-			    //                System.exit(1)
-			    //            }
-			    Display.sync(60)
-			    Display.update()
-		    }
-		    hyperScape.destroy()
-		    ShaderRegistry.destroyAllShaders()
-		    TextureRegistry.destroyAllTextures()
-		    Display.destroy()
+        //        GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
+        //        Render.mainCamera.updatePerspective()
+        //        Render.mainCamera.uploadPerspective()
 
-		    glfwDestroyWindow(Render.window)
-		    keyCallback.release()
-	    } finally {
-		    glfwTerminate()
-		    errorCallback.release()
-	    }
-
+        while (glfwWindowShouldClose(Render.window) == GLFW_FALSE && !HyperScape.isCloseRequested) {
+            //            if (firstRender) {
+            //                println("First Render")
+            //                GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
+            //                Render.mainCamera.updatePerspective()
+            //                Render.mainCamera.uploadPerspective()
+            //                firstRender = false
+            //            }
+            //			    if (Display.wasResized || resize) {
+            //				    GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
+            //				    Render.mainCamera.updatePerspective()
+            //				    Render.mainCamera.uploadPerspective()
+            //				    resize = false
+            //			    }
+            hyperScape.tick()
+            //            Render.mainCamera.uploadPerspective()
+            // Map the internal OpenGL coordinate system to the entire screen
+            hyperScape.render()
+            //            val err = GL11.glGetError()
+            //            if (err != 0) {
+            //                println("Error in shader" + ShaderRegistry.getCurrentShader + " | " + err)
+            //                System.exit(1)
+            //            }
+            //			    Display.sync(60)
+            //			    Display.update()
+            glfwSwapBuffers(Render.window)
+            glfwPollEvents()
+        }
+        hyperScape.destroy()
+        ShaderRegistry.destroyAllShaders()
+        TextureRegistry.destroyAllTextures()
+//		    Display.destroy()
+        Window.destroy()
     }
 
     /**
@@ -117,9 +107,10 @@ object Game {
 //        } else {
 //            suffix = "linux"
 //        }
-//        //        val nativePath = System.getProperty("user.dir") + File.separator + "lib" + File.separator + "lwjgl" + File.separator + "native" + File.separator + suffix
+        //        val nativePath = System.getProperty("user.dir") + File.separator + "lib" + File.separator + "lwjgl" + File.separator + "native" + File.separator + suffix
         val nativePath = System.getProperty("user.dir") + File.separator + "native"
         System.setProperty("org.lwjgl.librarypath", nativePath)
+        System.setProperty("org.lwjgl.util.Debug", "true")
     }
 
 //    /**
@@ -161,49 +152,13 @@ object Game {
 //    }
 
 	def initGL2(): Unit = {
-		errorCallback = GLFWErrorCallback.createPrint(System.err)
 
-		keyCallback = new GLFWKeyCallback {
-			override def invoke(l: Long, i: Int, i1: Int, i2: Int, i3: Int): Unit = ???
-
-		}
-
-		glfwSetErrorCallback(errorCallback)
-
-		if (glfwInit() != GLFW_TRUE)
-			throw new IllegalStateException("Unable to create GLFW")
-
-		glfwDefaultWindowHints()
-		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE)
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3)
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3)
-
-		Render.window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World!", MemoryUtil.NULL, MemoryUtil.NULL)
-		if (Render.window == MemoryUtil.NULL)
-			throw new RuntimeException("Failed to create GLFW window")
-
-		glfwSetKeyCallback(Render.window, keyCallback)
-
-		val vidMode: GLFWVidMode = glfwGetVideoMode(glfwGetPrimaryMonitor())
-
-		glfwSetWindowPos(
-			Render.window,
-			(vidMode.width() - WIDTH) / 2,
-			(vidMode.height() - HEIGHT) / 2
-		)
-
-		glfwMakeContextCurrent(Render.window)
-		glfwSwapInterval(1)
-		glfwShowWindow(Render.window)
-
-		GL.createCapabilities()
 
         GL11.glViewport(0, 0, WIDTH, HEIGHT)
         GL11.glEnable(GL11.GL_CULL_FACE)
         GL11.glClearColor(0.67058823529411764705882352941176f, 0.8078431372549019607843137254902f, 1f, 1f)
         GL11.glEnable(GL11.GL_DEPTH_TEST)
-        GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
+        GL11.glViewport(0, 0, Render.getWindowWidth, Render.getWindowHeight)
         Render.mainCamera.updatePerspective()
 
 		        //        GL11.glEnable(GL11.GL_BLEND)
@@ -239,18 +194,18 @@ object Game {
      * Calculate how many milliseconds have passed since last frame.
      * @return milliseconds passed since last frame
      */
-    def getDelta: Int = {
-        val time = getTime
-        val delta = (time - lastFrame).toInt
-        lastFrame = time
-        delta
-    }
+//    def getDelta: Int = {
+//        val time = getTime
+//        val delta = (time - lastFrame).toInt
+//        lastFrame = time
+//        delta
+//    }
 
-    /**
-     * Get the time in milliseconds
-     * @return The system time in milliseconds
-     */
-    def getTime: Long = {
-        (Sys.getTime * 1000) / Sys.getTimerResolution
-    }
+//    /**
+//     * Get the time in milliseconds
+//     * @return The system time in milliseconds
+//     */
+//    def getTime: Long = {
+//        (Sys.getTime * 1000) / Sys.getTimerResolution
+//    }
 }

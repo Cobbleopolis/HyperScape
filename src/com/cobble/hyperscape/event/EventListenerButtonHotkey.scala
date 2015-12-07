@@ -2,7 +2,7 @@ package com.cobble.hyperscape.event
 
 import com.cobble.hyperscape.Game
 import com.cobble.hyperscape.core.HyperScape
-import org.lwjgl.input.{Keyboard, Mouse}
+//import org.lwjgl.input.{Keyboard, Mouse}
 
 class EventListenerButtonHotkey extends EventListenerButton {
 
@@ -19,10 +19,10 @@ class EventListenerButtonHotkey extends EventListenerButton {
 //		    fullscreenDelay = 120
 //	    }
 
-	    if (charVal == Keyboard.KEY_F5 && fogDelay == 0) {
-		    HyperScape.drawFog = !HyperScape.drawFog
-		    fogDelay = 120
-	    }
+//	    if (charVal == Keyboard.KEY_F5 && fogDelay == 0) {
+//		    HyperScape.drawFog = !HyperScape.drawFog
+//		    fogDelay = 120
+//	    }
 
     }
 
