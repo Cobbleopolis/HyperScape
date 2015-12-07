@@ -6,9 +6,14 @@ import com.cobble.hyperscape.core.{HyperScape, Init}
 import com.cobble.hyperscape.registry.{ShaderRegistry, TextureRegistry}
 import com.cobble.hyperscape.render.Render
 import com.cobble.hyperscape.util.GLUtil
+import org.lwjgl.glfw.{GLFWVidMode, GLFWKeyCallback, GLFWErrorCallback}
+import org.lwjgl.glfw.GLFW._
 import org.lwjgl.input.Keyboard
 import org.lwjgl.opengl._
+import org.lwjgl.system.MemoryUtil
 import org.lwjgl.{LWJGLException, Sys}
+
+import scala.xml.Null
 
 object Game {
     val WINDOW_TITLE = "HyperScape - Indev"
@@ -28,6 +33,9 @@ object Game {
 
     var fullscreen: Boolean = false
 
+	private var errorCallback: GLFWErrorCallback = null
+	private var keyCallback: GLFWKeyCallback = null
+
     //    var firstRender: Boolean = true
 
     /**
@@ -36,55 +44,63 @@ object Game {
      */
     def main(args: Array[String]): Unit = {
         setNatives()
-	    HyperScape.debug = args.contains("--debug")
-	    fullscreen = args.contains("--fullscreen")
-        initGL()
-        Init.loadAssets()
-        ShaderRegistry.bindShader("gui")
-        //        TextureRegistry.bindTexture("terrain")
+	    try {
+		    HyperScape.debug = args.contains("--debug")
+		    fullscreen = args.contains("--fullscreen")
+		    initGL2()
+		    Init.loadAssets()
+		    ShaderRegistry.bindShader("gui")
+		    //        TextureRegistry.bindTexture("terrain")
 
-        lastFrame = getTime
+		    lastFrame = getTime
 
-        hyperScape = new HyperScape
-        hyperScape.init()
-        //        hyperScape.changeState("mainMenu")
+		    hyperScape = new HyperScape
+		    hyperScape.init()
+		    //        hyperScape.changeState("mainMenu")
 
-        Keyboard.enableRepeatEvents(true)
+		    Keyboard.enableRepeatEvents(true)
 
-        //        GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
-        //        Render.mainCamera.updatePerspective()
-        //        Render.mainCamera.uploadPerspective()
+		    //        GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
+		    //        Render.mainCamera.updatePerspective()
+		    //        Render.mainCamera.uploadPerspective()
 
-        while (!Display.isCloseRequested && !HyperScape.isCloseRequested) {
-            //            if (firstRender) {
-            //                println("First Render")
-            //                GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
-            //                Render.mainCamera.updatePerspective()
-            //                Render.mainCamera.uploadPerspective()
-            //                firstRender = false
-            //            }
-            if (Display.wasResized || resize) {
-                GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
-                Render.mainCamera.updatePerspective()
-                Render.mainCamera.uploadPerspective()
-                resize = false
-            }
-            hyperScape.tick()
-            //            Render.mainCamera.uploadPerspective()
-            // Map the internal OpenGL coordinate system to the entire screen
-            hyperScape.render()
-            //            val err = GL11.glGetError()
-            //            if (err != 0) {
-            //                println("Error in shader" + ShaderRegistry.getCurrentShader + " | " + err)
-            //                System.exit(1)
-            //            }
-            Display.sync(60)
-            Display.update()
-        }
-        hyperScape.destroy()
-        ShaderRegistry.destroyAllShaders()
-        TextureRegistry.destroyAllTextures()
-        Display.destroy()
+		    while (glfwWindowShouldClose(Render.window) == GLFW_FALSE && !HyperScape.isCloseRequested) {
+			    //            if (firstRender) {
+			    //                println("First Render")
+			    //                GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
+			    //                Render.mainCamera.updatePerspective()
+			    //                Render.mainCamera.uploadPerspective()
+			    //                firstRender = false
+			    //            }
+			    if (Display.wasResized || resize) {
+				    GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
+				    Render.mainCamera.updatePerspective()
+				    Render.mainCamera.uploadPerspective()
+				    resize = false
+			    }
+			    hyperScape.tick()
+			    //            Render.mainCamera.uploadPerspective()
+			    // Map the internal OpenGL coordinate system to the entire screen
+			    hyperScape.render()
+			    //            val err = GL11.glGetError()
+			    //            if (err != 0) {
+			    //                println("Error in shader" + ShaderRegistry.getCurrentShader + " | " + err)
+			    //                System.exit(1)
+			    //            }
+			    Display.sync(60)
+			    Display.update()
+		    }
+		    hyperScape.destroy()
+		    ShaderRegistry.destroyAllShaders()
+		    TextureRegistry.destroyAllTextures()
+		    Display.destroy()
+
+		    glfwDestroyWindow(Render.window)
+		    keyCallback.release()
+	    } finally {
+		    glfwTerminate()
+		    errorCallback.release()
+	    }
 
     }
 
@@ -92,78 +108,128 @@ object Game {
      * Sets the natives based on the operating system
      */
     def setNatives(): Unit = {
-        val os = System.getProperty("os.name").toLowerCase
-        var suffix = ""
-        if (os.contains("win")) {
-            suffix = "windows"
-        } else if (os.contains("mac")) {
-            suffix = "macosx"
-        } else {
-            suffix = "linux"
-        }
-        //        val nativePath = System.getProperty("user.dir") + File.separator + "lib" + File.separator + "lwjgl" + File.separator + "native" + File.separator + suffix
-        val nativePath = System.getProperty("user.dir") + File.separator + "native" + File.separator + suffix
+//        val os = System.getProperty("os.name").toLowerCase
+//        var suffix = ""
+//        if (os.contains("win")) {
+//            suffix = "windows"
+//        } else if (os.contains("mac")) {
+//            suffix = "macosx"
+//        } else {
+//            suffix = "linux"
+//        }
+//        //        val nativePath = System.getProperty("user.dir") + File.separator + "lib" + File.separator + "lwjgl" + File.separator + "native" + File.separator + suffix
+        val nativePath = System.getProperty("user.dir") + File.separator + "native"
         System.setProperty("org.lwjgl.librarypath", nativePath)
     }
 
-    /**
-     * Initializes OpenGL
-     */
-    def initGL(): Unit = {
-        // Setup an OpenGL context with API version 3.3
-        try {
-            val pixelFormat = new PixelFormat()
-            val contextAtrributes = new ContextAttribs(3, 3)
-                .withForwardCompatible(true)
-                .withProfileCore(true)
+//    /**
+//     * Initializes OpenGL
+//     */
+//    def initGL(): Unit = {
+//        // Setup an OpenGL context with API version 3.3
+//        try {
+//            val pixelFormat = new PixelFormat()
+//            val contextAtrributes = new ContextAttribs(3, 3)
+//                .withForwardCompatible(true)
+//                .withProfileCore(true)
+//
+//            //			Display.getAvailableDisplayModes.foreach(dM => {
+//            //				if (dM.getWidth == WIDTH && dM.getHeight == HEIGHT && dM.isFullscreenCapable) {
+//            //					println("Mode")
+//            //					displayMode = dM
+//            //					return
+//            //				}
+//            //			})
+//
+//            Display.setDisplayModeAndFullscreen(if (fullscreen) Display.getDesktopDisplayMode else new DisplayMode(WIDTH, HEIGHT))
+//            Display.setTitle(WINDOW_TITLE)
+//
+//            Display.setResizable(true)
+//            Display.create(pixelFormat, contextAtrributes)
+//        } catch {
+//            case e: LWJGLException => e.printStackTrace(); System.exit(-1)
+//        }
+////        GL11.glViewport(0, 0, WIDTH, HEIGHT)
+//        GL11.glEnable(GL11.GL_CULL_FACE)
+//        GL11.glClearColor(0.67058823529411764705882352941176f, 0.8078431372549019607843137254902f, 1f, 1f)
+//        GL11.glEnable(GL11.GL_DEPTH_TEST)
+//        GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
+//        Render.mainCamera.updatePerspective()
+//
+//        //        GL11.glEnable(GL11.GL_BLEND)
+//        //        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA)
+//    }
 
-            //			Display.getAvailableDisplayModes.foreach(dM => {
-            //				if (dM.getWidth == WIDTH && dM.getHeight == HEIGHT && dM.isFullscreenCapable) {
-            //					println("Mode")
-            //					displayMode = dM
-            //					return
-            //				}
-            //			})
+	def initGL2(): Unit = {
+		errorCallback = GLFWErrorCallback.createPrint(System.err)
 
-            Display.setDisplayModeAndFullscreen(if (fullscreen) Display.getDesktopDisplayMode else new DisplayMode(WIDTH, HEIGHT))
-            Display.setTitle(WINDOW_TITLE)
+		keyCallback = new GLFWKeyCallback {
+			override def invoke(l: Long, i: Int, i1: Int, i2: Int, i3: Int): Unit = ???
 
-            Display.setResizable(true)
-            Display.create(pixelFormat, contextAtrributes)
-        } catch {
-            case e: LWJGLException => e.printStackTrace(); System.exit(-1)
-        }
-//        GL11.glViewport(0, 0, WIDTH, HEIGHT)
+		}
+
+		glfwSetErrorCallback(errorCallback)
+
+		if (glfwInit() != GLFW_TRUE)
+			throw new IllegalStateException("Unable to create GLFW")
+
+		glfwDefaultWindowHints()
+		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE)
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3)
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3)
+
+		Render.window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World!", MemoryUtil.NULL, MemoryUtil.NULL)
+		if (Render.window == MemoryUtil.NULL)
+			throw new RuntimeException("Failed to create GLFW window")
+
+		glfwSetKeyCallback(Render.window, keyCallback)
+
+		val vidMode: GLFWVidMode = glfwGetVideoMode(glfwGetPrimaryMonitor())
+
+		glfwSetWindowPos(
+			Render.window,
+			(vidMode.width() - WIDTH) / 2,
+			(vidMode.height() - HEIGHT) / 2
+		)
+
+		glfwMakeContextCurrent(Render.window)
+		glfwSwapInterval(1)
+		glfwShowWindow(Render.window)
+
+		GL.createCapabilities()
+
+        GL11.glViewport(0, 0, WIDTH, HEIGHT)
         GL11.glEnable(GL11.GL_CULL_FACE)
         GL11.glClearColor(0.67058823529411764705882352941176f, 0.8078431372549019607843137254902f, 1f, 1f)
         GL11.glEnable(GL11.GL_DEPTH_TEST)
         GL11.glViewport(0, 0, Display.getWidth, Display.getHeight)
         Render.mainCamera.updatePerspective()
 
-        //        GL11.glEnable(GL11.GL_BLEND)
-        //        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA)
-    }
+		        //        GL11.glEnable(GL11.GL_BLEND)
+		        //        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA)
+	}
 
-    def toggleFullScreen(): Unit = {
-        if (Display.isFullscreen == fullscreen) {
-            fullscreen = !fullscreen
-            if (fullscreen) {
-                //				displayModeNormal = Display.getDisplayMode
-                prevWidth = Display.getWidth
-                prevHeight = Display.getHeight
-                Display.setDisplayModeAndFullscreen(Display.getDesktopDisplayMode)
-//                Display.setFullscreen(true)
-            } else {
-	            Display.setFullscreen(false)
-	            Display.setDisplayModeAndFullscreen(new DisplayMode(prevWidth, prevHeight))
-	            Display.setResizable(true)
-            }
-
-            //			Display.setFullscreen(true)
-            //			Display.setDisplayModeAndFullscreen(if (fullscreen) displayModeFullScreen else new DisplayMode(WIDTH, HEIGHT))
-            GLUtil.checkGLError("Change Fullscreen")
-        }
-    }
+//    def toggleFullScreen(): Unit = {
+//        if (Display.isFullscreen == fullscreen) {
+//            fullscreen = !fullscreen
+//            if (fullscreen) {
+//                //				displayModeNormal = Display.getDisplayMode
+//                prevWidth = Display.getWidth
+//                prevHeight = Display.getHeight
+//                Display.setDisplayModeAndFullscreen(Display.getDesktopDisplayMode)
+////                Display.setFullscreen(true)
+//            } else {
+//	            Display.setFullscreen(false)
+//	            Display.setDisplayModeAndFullscreen(new DisplayMode(prevWidth, prevHeight))
+//	            Display.setResizable(true)
+//            }
+//
+//            //			Display.setFullscreen(true)
+//            //			Display.setDisplayModeAndFullscreen(if (fullscreen) displayModeFullScreen else new DisplayMode(WIDTH, HEIGHT))
+//            GLUtil.checkGLError("Change Fullscreen")
+//        }
+//    }
     
     def requestResize(): Unit = {
         resize = true
